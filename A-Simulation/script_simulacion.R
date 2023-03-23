@@ -257,4 +257,4 @@ set.seed(852345)
 data_pref_final <- muestreo_preferencial(m, q_pref)
 
 # RData --------------------------- 
-save.image(file = "./A-Simulacion/simulated_data.RData")
+save.image(file = "./A-Simulation/simulated_data.RData")
