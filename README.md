@@ -80,3 +80,9 @@ m <- 50 # Number of sampling points
 q_random <- 0.3 # Catchability coefficient for random sampling
 q_pref <- 0.6 #  Catchability coefficient for preferential sampling
 ```
+6. Session information
+ ```
+R version 4.2.1 (2022-06-23 ucrt)
+Platform: x86_64-w64-mingw32/x64 (64-bit)
+Running under: Windows 10 x64 (build 19044)
+ ```
