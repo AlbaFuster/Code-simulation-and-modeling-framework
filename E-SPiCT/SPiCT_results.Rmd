@@ -1,0 +1,1526 @@
+---
+title: "SPiCT"
+output: 
+  html_document:
+    theme: cerulean
+    highlight: pygments 
+    fig_caption: false
+    df_print: kable
+    toc: true
+    toc_float: 
+      collapsed: true
+    number_sections: false
+    self_contained: true
+    code_download: true
+---
+<style> body {text-align: justify} </style> <!-- Justify text. -->
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+```
+
+```{r, include = FALSE}
+# Paquetes ---------------------------
+library(spict)
+library(knitr)
+library(formatR)
+library(ellipse)
+library(ggplot2)
+library(corrplot)
+library(icesAdvice)
+library(Metrics)
+library(MLmetrics)
+
+# Load data
+load("./simulated_data.RData")
+```
+
+# Relativa biomass indices (random sampling)
+
+## Inputs SCiPT {.tabset .tabset-fade}
+
+```{r, eval = FALSE}
+# INPUT 1: catch ---------------------------
+## Extract the simulated biomass each year ---------------------------
+simulated_biomass <- list()
+for (i in 1:k) {
+  simulated_biomass[[i]] <- sum(data_variables[[i]]$biomasa)
+}
+simulated_biomass <- unlist(simulated_biomass)
+## Set parameters of Schafer's production curve ---------------------------
+r <- 1.4
+K <- sum(simulated_biomass)/0.5
+
+## Catch approximation ---------------------------
+simulated_catch <- list()
+for (i in 1: (k-1)) {
+  simulated_catch[[i]] <- simulated_biomass[i] - simulated_biomass[(i + 1)] + (r*simulated_biomass[i] * (1-(simulated_biomass[i]/K)))
+}
+
+simulated_catch[[15]] <-  r*simulated_biomass[15]*(1-(simulated_biomass[15]/K)) # We assumed equilibrium biomass_14 = biomass_15 
+
+simulated_catch <- unlist(simulated_catch)
+
+## Capturas ---------------------------
+C_sp_i <- data.frame(obsC = simulated_catch, timeC = rep(2000:2014)) 
+
+# INPUT 2: relative indices of biomass ---------------------------
+load("./random_series.RData")
+I_sp_i <- data.frame(ObsI = modelo, timeI = 2000:2014) 
+
+# Joint INPUTS ---------------------------
+inp <- list(
+  timeC = C_sp_i$timeC, # Year
+  obsC = C_sp_i$obsC, # Catch
+  timeI = list(I_sp_i$timeI), # Year
+  obsI = list(I_sp_i$ObsI) # relativa indices
+)
+
+inp <- check.inp(inp)
+inp$dtc
+inp$dteuler <- 1/16
+inp$ini$logn <- log(2) # Set p
+inp$phases$logn <- -1
+```
+
+```{r, include = FALSE}
+# INPUT 1: catch ---------------------------
+## Extract the simulated biomass each year ---------------------------
+simulated_biomass <- list()
+for (i in 1:k) {
+  simulated_biomass[[i]] <- sum(data_variables[[i]]$biomasa)
+}
+simulated_biomass <- unlist(simulated_biomass)
+## Set parameters of Schafer's production curve ---------------------------
+r <- 1.4
+K <- sum(simulated_biomass)/0.5
+
+## Catch approximation ---------------------------
+simulated_catch <- list()
+for (i in 1: (k-1)) {
+  simulated_catch[[i]] <- simulated_biomass[i] - simulated_biomass[(i + 1)] + (r*simulated_biomass[i] * (1-(simulated_biomass[i]/K)))
+}
+
+simulated_catch[[15]] <-  r*simulated_biomass[15]*(1-(simulated_biomass[15]/K)) # We assumed equilibrium biomass_14 = biomass_15 
+
+simulated_catch <- unlist(simulated_catch)
+
+## Capturas ---------------------------
+C_sp_i <- data.frame(obsC = simulated_catch, timeC = rep(2000:2014)) 
+
+# INPUT 2: relative indices of biomass ---------------------------
+load("./random_series.RData")
+I_sp_i_1 <- data.frame(ObsI = glm_f_bio_r, timeI = 2000:2014) 
+I_sp_i_2 <- data.frame(ObsI = glm_b_bio_r, timeI = 2000:2014) 
+I_sp_i_3 <- data.frame(ObsI = gam_f_bio_r, timeI = 2000:2014) 
+I_sp_i_4 <- data.frame(ObsI = gam_b_bio_r, timeI = 2000:2014) 
+I_sp_i_5 <- data.frame(ObsI = geo_b_bio_r, timeI = 2000:2014) 
+
+# Joint INPUTS ---------------------------
+## GLM F
+inp_1 <- list(
+  timeC = C_sp_i$timeC, # Year
+  obsC = C_sp_i$obsC, # Catch
+  timeI = list(I_sp_i_1$timeI), # Year
+  obsI = list(I_sp_i_1$ObsI) # relative indices
+)
+
+inp_1 <- check.inp(inp_1)
+inp_1$dtc
+inp_1$dteuler <- 1/16
+inp_1$ini$logn <- log(2) # Set p
+inp_1$phases$logn <- -1
+
+## GLM B 
+inp_2 <- list(
+  timeC = C_sp_i$timeC, # Year
+  obsC = C_sp_i$obsC, # Catch
+  timeI = list(I_sp_i_2$timeI), # Year
+  obsI = list(I_sp_i_2$ObsI) # relative indices
+)
+
+inp_2 <- check.inp(inp_2)
+inp_2$dtc
+inp_2$dteuler <- 1/16
+inp_2$ini$logn <- log(2) # Set p
+inp_2$phases$logn <- -1
+
+## GAM F
+inp_3 <- list(
+  timeC = C_sp_i$timeC, # Year
+  obsC = C_sp_i$obsC, # Catch
+  timeI = list(I_sp_i_3$timeI), # Year
+  obsI = list(I_sp_i_3$ObsI) # relative indices
+)
+
+inp_3 <- check.inp(inp_3)
+inp_3$dtc
+inp_3$dteuler <- 1/16
+inp_3$ini$logn <- log(2) # Set p
+inp_3$phases$logn <- -1
+
+## GAM B
+inp_4 <- list(
+  timeC = C_sp_i$timeC, # Year
+  obsC = C_sp_i$obsC, # Catch
+  timeI = list(I_sp_i_4$timeI), # Year
+  obsI = list(I_sp_i_4$ObsI) # relative indices
+)
+
+inp_4 <- check.inp(inp_4)
+inp_4$dtc
+inp_4$dteuler <- 1/16
+inp_4$ini$logn <- log(2) # Set p
+inp_4$phases$logn <- -1
+
+## GEO
+inp_5 <- list(
+  timeC = C_sp_i$timeC, # Year
+  obsC = C_sp_i$obsC, # Catch
+  timeI = list(I_sp_i_5$timeI), # Year
+  obsI = list(I_sp_i_5$ObsI) # relative indices
+)
+
+inp_5 <- check.inp(inp_5)
+inp_5$dtc
+inp_5$dteuler <- 1/16
+inp_5$ini$logn <- log(2) # Set p
+inp_5$phases$logn <- -1
+```
+
+### GLM (frequentist)
+
+```{r, echo = FALSE, fig.align='center'}
+plotspict.data(inp_1)
+```
+
+### GLM (Bayesian)
+
+```{r, echo = FALSE, fig.align='center'}
+plotspict.data(inp_2)
+```
+
+### GAM (frequentist)
+
+```{r, echo = FALSE, fig.align='center'}
+plotspict.data(inp_3)
+```
+
+### GAM (Bayesian)
+
+```{r, echo = FALSE, fig.align='center'}
+plotspict.data(inp_4)
+```
+
+### Geostatistic
+
+```{r, echo = FALSE, fig.align='center'}
+plotspict.data(inp_5)
+```
+
+## Fit the model {.tabset .tabset-fade}
+
+```{r, eval = FALSE}
+# SPiCT ---------------------------
+res <- fit.spict(inp)
+```
+
+```{r, include = FALSE}
+res_1 <- fit.spict(inp_1) # GLM F
+res_2 <- fit.spict(inp_2) # GLM B
+res_3 <- fit.spict(inp_3) # GAM F
+res_4 <- fit.spict(inp_4) # GAM B
+res_5 <- fit.spict(inp_5) # GEO
+```
+
+### GLM (frequentist)
+
+```{r, echo = FALSE, fig.align='center'}
+plot(res_1)
+```
+
+### GLM (Bayesian)
+
+```{r, echo = FALSE, fig.align='center'}
+plot(res_2)
+```
+
+### GAM (frequentist)
+
+```{r, echo = FALSE, fig.align='center'}
+plot(res_3)
+```
+
+### GAM (Bayesian)
+
+```{r, echo = FALSE, fig.align='center'}
+plot(res_4)
+```
+
+### Geostatistic
+
+```{r, echo = FALSE, fig.align='center'}
+plot(res_5)
+```
+
+## Diagnostic {.tabset .tabset-fade}
+
+```{r, eval = FALSE}
+# Diagnostic ---------------------------
+## Convergence 
+res$opt$convergence # 0 convergence  
+all(is.finite(res$sd)) # if it is TRUE is okay 
+
+residuals <- calc.osa.resid(res) # residuals of the model
+plotspict.diagnostic(residuals) # test for the diagnostic
+
+## Retrospective analysis
+r <- fit.spict(inp) 
+rep=retro(r, nretroyear=3) # Eliminate 3 years
+plotspict.retro(rep) # plot for the retrospective analysis 
+m1=mohns_rho(rep, what = c("FFmsy", "BBmsy"));
+m1 # Discrepancy between last year and trajectories, it is NOT suitable for our specific case
+
+
+## Production curve
+plotspict.production(res) # check that the points fall around the curve
+
+## Model robustness (change of initial values)
+set.seed(1234)
+a=check.ini(inp, ntrials=30 
+            ,verbose = FALSE)
+a$check.ini$propchng
+a$check.ini$resmat # check distance is close to 0 
+
+# Confidence intervals
+fit=res # no more than 1 unit
+get.par("logBmBmsy", fit, exp=TRUE, CI = 0.9) 
+get.par("logFmFmsy", fit, exp=TRUE, CI = 0.9)
+
+# Estimated biomass vs real biomass
+get.par("logB", fit, exp=TRUE, CI = 0.9) 
+biomass_scpit <- get.par("logB", res, exp = TRUE)[seq(1,length(inp$time),by=16),2]
+biomass_scpit <- biomass_scpit[1:15] 
+plot(biomass_scpit, col = "red", type = "l")
+plot(simulated_biomass, col = "blue", type = "l")
+plotspict.biomass(res) 
+```
+
+### GLM (frequentist)
+
+#### Measures for convergence
+
+```{r}
+# Diagnostic ---------------------------
+## Convergence 
+res_1$opt$convergence # 0 convergence  
+all(is.finite(res_1$sd)) # if it is TRUE is okay 
+```
+
+#### Residuals analysis
+
+```{r, fig.align='center'}
+residuals_1 <- calc.osa.resid(res_1) # residuals of the model
+plotspict.diagnostic(residuals_1) # test for the diagnostic
+```
+
+#### Retrospective analysis
+
+```{r, fig.align='center'}
+## Retrospective analysis
+r_1 <- fit.spict(inp_1) 
+rep_1 = retro(r_1, nretroyear=3) # Eliminate 3 years
+plotspict.retro(rep_1) # plot for the retrospective analysis 
+```
+
+#### Production curve
+
+```{r, fig.align='center'}
+## Production curve
+plotspict.production(res_1) # check that the points fall around the curve
+```
+
+#### Model robustness
+
+```{r}
+## Model robustness (change of initial values)
+set.seed(1234)
+a_1=check.ini(inp_1, ntrials=30 
+            ,verbose = FALSE)
+#a_1$check.ini$propchng
+table(a_1$check.ini$resmat[1:30] == 0) # check distance is close to 0 
+```
+
+#### Confidence intervals
+
+```{r}
+# Confidence intervals
+fit_1=res_1 # no more than 1 unit
+get.par("logBmBmsy", fit_1, exp=TRUE, CI = 0.9) 
+get.par("logFmFmsy", fit_1, exp=TRUE, CI = 0.9)
+```
+
+#### Estimated biomass vs Simulated biomass
+
+```{r}
+# get.par("logB", fit_1, exp=TRUE, CI = 0.9) 
+biomass_SPiCT_1 <- get.par("logB", res_1, exp = TRUE)[seq(1,length(inp_1$time),by=16),2]
+biomass_SPiCT_1 <- biomass_SPiCT_1[1:15] 
+```
+
+```{r, fig.align= TRUE}
+plot(biomass_SPiCT_1,
+     col = "red",
+     type = "l",
+     ylim = c(min(simulated_biomass), max(biomass_SPiCT_1))
+     )
+lines(simulated_biomass, col = "blue", type = "l")
+```
+
+```{r}
+# Error measures
+glm_f_rmse <- rmse(biomass_SPiCT_1, simulated_biomass)
+glm_f_mae <- mae(biomass_SPiCT_1, simulated_biomass)
+glm_f_mape <- MAPE(biomass_SPiCT_1, simulated_biomass)
+glm_f_rmse # RMSE
+glm_f_mae # MAE
+glm_f_mape # MAPE
+```
+
+### GLM (Bayesian)
+
+#### Measures for convergence
+
+```{r}
+# Diagnostic ---------------------------
+## Convergence 
+res_2$opt$convergence # 0 convergence  
+all(is.finite(res_2$sd)) # if it is TRUE is okay 
+```
+
+#### Residuals analysis
+
+```{r, fig.align='center'}
+residuals_2 <- calc.osa.resid(res_2) # residuals of the model
+plotspict.diagnostic(residuals_2) # test for the diagnostic
+```
+
+#### Retrospective analysis
+
+```{r, fig.align='center'}
+## Retrospective analysis
+r_2 <- fit.spict(inp_2) 
+rep_2 = retro(r_2, nretroyear=3) # Eliminate 3 years
+plotspict.retro(rep_2) # plot for the retrospective analysis 
+```
+
+#### Production curve
+
+```{r, fig.align='center'}
+## Production curve
+plotspict.production(res_2) # check that the points fall around the curve
+```
+
+#### Model robustness
+
+```{r}
+## Model robustness (change of initial values)
+set.seed(1234)
+a_2=check.ini(inp_2, ntrials=30 
+            ,verbose = FALSE)
+#a_2$check.ini$propchng
+table(a_2$check.ini$resmat[1:30] == 0) # check distance is close to 0 
+```
+
+#### Confidence intervals
+
+```{r}
+# Confidence intervals
+fit_2=res_2 # no more than 1 unit
+get.par("logBmBmsy", fit_2, exp=TRUE, CI = 0.9) 
+get.par("logFmFmsy", fit_2, exp=TRUE, CI = 0.9)
+```
+
+#### Estimated biomass vs Simulated biomass
+
+```{r}
+# get.par("logB", fit_2, exp=TRUE, CI = 0.9) 
+biomass_SPiCT_2 <- get.par("logB", res_2, exp = TRUE)[seq(1,length(inp_2$time),by=16),2]
+biomass_SPiCT_2 <- biomass_SPiCT_2[1:15] 
+```
+
+```{r, fig.align= TRUE}
+plot(biomass_SPiCT_2,
+     col = "red",
+     type = "l",
+     ylim = c(min(simulated_biomass), max(biomass_SPiCT_2))
+     )
+lines(simulated_biomass, col = "blue", type = "l")
+```
+
+```{r}
+# Error measures
+glm_b_rmse <- rmse(biomass_SPiCT_2, simulated_biomass)
+glm_b_mae <- mae(biomass_SPiCT_2, simulated_biomass)
+glm_b_mape <- MAPE(biomass_SPiCT_2, simulated_biomass)
+glm_b_rmse # RMSE
+glm_b_mae # MAE
+glm_b_mape # MAPE
+```
+
+### GAM (frequentist)
+
+#### Measures for convergence
+
+```{r}
+# Diagnostic ---------------------------
+## Convergence 
+res_3$opt$convergence # 0 convergence  
+all(is.finite(res_3$sd)) # if it is TRUE is okay 
+```
+
+#### Residuals analysis
+
+```{r, fig.align='center'}
+residuals_3 <- calc.osa.resid(res_3) # residuals of the model
+plotspict.diagnostic(residuals_3) # test for the diagnostic
+```
+
+#### Retrospective analysis
+
+```{r, fig.align='center'}
+## Retrospective analysis
+r_3 <- fit.spict(inp_3) 
+rep_3 = retro(r_3, nretroyear=3) # Eliminate 3 years
+plotspict.retro(rep_3) # plot for the retrospective analysis 
+```
+
+#### Production curve
+
+```{r, fig.align='center'}
+## Production curve
+plotspict.production(res_3) # check that the points fall around the curve
+```
+
+#### Model robustness
+
+```{r}
+## Model robustness (change of initial values)
+set.seed(1234)
+a_3=check.ini(inp_3, ntrials=30 
+            ,verbose = FALSE)
+#a_3$check.ini$propchng
+table(a_3$check.ini$resmat[1:30] == 0) # check distance is close to 0 
+```
+
+#### Confidence intervals
+
+```{r}
+# Confidence intervals
+fit_3=res_3 # no more than 1 unit
+get.par("logBmBmsy", fit_3, exp=TRUE, CI = 0.9) 
+get.par("logFmFmsy", fit_3, exp=TRUE, CI = 0.9)
+```
+
+#### Estimated biomass vs Simulated biomass
+
+```{r}
+# get.par("logB", fit_3, exp=TRUE, CI = 0.9) 
+biomass_SPiCT_3 <- get.par("logB", res_3, exp = TRUE)[seq(1,length(inp_3$time),by=16),2]
+biomass_SPiCT_3 <- biomass_SPiCT_3[1:15] 
+```
+
+```{r, fig.align= TRUE}
+plot(biomass_SPiCT_3,
+     col = "red",
+     type = "l",
+     ylim = c(min(simulated_biomass), max(biomass_SPiCT_3))
+     )
+lines(simulated_biomass, col = "blue", type = "l")
+```
+
+```{r}
+# Error measures
+gam_f_rmse <- rmse(biomass_SPiCT_3, simulated_biomass)
+gam_f_mae <- mae(biomass_SPiCT_3, simulated_biomass)
+gam_f_mape <- MAPE(biomass_SPiCT_3, simulated_biomass)
+gam_f_rmse # RMSE
+gam_f_mae # MAE
+gam_f_mape # MAPE
+```
+
+### GAM (Bayesian)
+
+#### Measures for convergence
+
+```{r}
+# Diagnostic ---------------------------
+## Convergence 
+res_4$opt$convergence # 0 convergence  
+all(is.finite(res_4$sd)) # if it is TRUE is okay 
+```
+
+#### Residuals analysis
+
+```{r, fig.align='center'}
+residuals_4 <- calc.osa.resid(res_4) # residuals of the model
+plotspict.diagnostic(residuals_4) # test for the diagnostic
+```
+
+#### Retrospective analysis
+
+```{r, fig.align='center'}
+## Retrospective analysis
+r_4 <- fit.spict(inp_4) 
+rep_4 = retro(r_4, nretroyear=3) # Eliminate 3 years
+plotspict.retro(rep_4) # plot for the retrospective analysis 
+```
+
+#### Production curve
+
+```{r, fig.align='center'}
+## Production curve
+plotspict.production(res_4) # check that the points fall around the curve
+```
+
+#### Model robustness
+
+```{r}
+## Model robustness (change of initial values)
+set.seed(1234)
+a_4=check.ini(inp_4, ntrials=30 
+            ,verbose = FALSE)
+#a_4$check.ini$propchng
+table(a_4$check.ini$resmat[1:30] == 0) # check distance is close to 0 
+```
+
+#### Confidence intervals
+
+```{r}
+# Confidence intervals
+fit_4=res_4 # no more than 1 unit
+get.par("logBmBmsy", fit_4, exp=TRUE, CI = 0.9) 
+get.par("logFmFmsy", fit_4, exp=TRUE, CI = 0.9)
+```
+
+#### Estimated biomass vs Simulated biomass
+
+```{r}
+# get.par("logB", fit_4, exp=TRUE, CI = 0.9) 
+biomass_SPiCT_4 <- get.par("logB", res_4, exp = TRUE)[seq(1,length(inp_4$time),by=16),2]
+biomass_SPiCT_4 <- biomass_SPiCT_4[1:15] 
+```
+
+```{r, fig.align= TRUE}
+plot(biomass_SPiCT_4,
+     col = "red",
+     type = "l",
+     ylim = c(min(simulated_biomass), max(biomass_SPiCT_4))
+     )
+lines(simulated_biomass, col = "blue", type = "l")
+```
+
+```{r}
+# Error measures
+gam_b_rmse <- rmse(biomass_SPiCT_4, simulated_biomass)
+gam_b_mae <- mae(biomass_SPiCT_4, simulated_biomass)
+gam_b_mape <- MAPE(biomass_SPiCT_4, simulated_biomass)
+gam_b_rmse # RMSE
+gam_b_mae # MAE
+gam_b_mape # MAPE
+```
+
+### Geostatistic
+
+#### Measures for convergence
+
+```{r}
+# Diagnostic ---------------------------
+## Convergence 
+res_5$opt$convergence # 0 convergence  
+all(is.finite(res_5$sd)) # if it is TRUE is okay 
+```
+
+#### Residuals analysis
+
+```{r, fig.align='center'}
+residuals_5 <- calc.osa.resid(res_5) # residuals of the model
+plotspict.diagnostic(residuals_5) # test for the diagnostic
+```
+
+#### Retrospective analysis
+
+```{r, fig.align='center'}
+## Retrospective analysis
+r_5 <- fit.spict(inp_5) 
+rep_5 = retro(r_5, nretroyear=3) # Eliminate 3 years
+plotspict.retro(rep_5) # plot for the retrospective analysis 
+```
+
+#### Production curve
+
+```{r, fig.align='center'}
+## Production curve
+plotspict.production(res_5) # check that the points fall around the curve
+```
+
+#### Model robustness
+
+```{r}
+## Model robustness (change of initial values)
+set.seed(1234)
+a_5=check.ini(inp_5, ntrials=30 
+            ,verbose = FALSE)
+#a_5$check.ini$propchng
+table(a_5$check.ini$resmat[1:30] == 0) # check distance is close to 0 
+```
+
+#### Confidence intervals
+
+```{r}
+# Confidence intervals
+fit_5=res_5 # no more than 1 unit
+get.par("logBmBmsy", fit_5, exp=TRUE, CI = 0.9) 
+get.par("logFmFmsy", fit_5, exp=TRUE, CI = 0.9)
+```
+
+#### Estimated biomass vs Simulated biomass
+
+```{r}
+# get.par("logB", fit_5, exp=TRUE, CI = 0.9) 
+biomass_SPiCT_5 <- get.par("logB", res_5, exp = TRUE)[seq(1,length(inp_5$time),by=16),2]
+biomass_SPiCT_5 <- biomass_SPiCT_5[1:15] 
+```
+
+```{r, fig.align= TRUE}
+plot(biomass_SPiCT_5,
+     col = "red",
+     type = "l",
+     ylim = c(min(simulated_biomass), max(biomass_SPiCT_5))
+     )
+lines(simulated_biomass, col = "blue", type = "l")
+```
+
+```{r}
+# Error measures
+geo_b_rmse <- rmse(biomass_SPiCT_5, simulated_biomass)
+geo_b_mae <- mae(biomass_SPiCT_5, simulated_biomass)
+geo_b_mape <- MAPE(biomass_SPiCT_5, simulated_biomass)
+geo_b_rmse # RMSE
+geo_b_mae # MAE
+geo_b_mape # MAPE
+```
+
+```{r, include = FALSE}
+data_error_random <- data.frame(models = c("GLM F",
+                                           "GLM B",
+                                           "GAM F",
+                                           "GAM B",
+                                           "GEO"),
+  
+                              rmse = c(glm_f_rmse,
+                                        glm_b_rmse,
+                                        gam_f_rmse,
+                                        gam_b_rmse,
+                                        geo_b_rmse),
+                               
+                                mae = c(glm_f_mae,
+                                        glm_b_mae,
+                                        gam_f_mae,
+                                        gam_b_mae,
+                                        geo_b_mae),
+                               
+                                mape = c(glm_f_mape,
+                                         glm_b_mape,
+                                         gam_f_mape,
+                                         gam_b_mape,
+                                         geo_b_mape)
+                               )
+
+```
+
+# CPUE indices (preferential sampling)
+
+## INPUTS SPiCT {.tabset .tabset-fade}
+
+```{r, include = FALSE}
+# INPUT 1: catch ---------------------------
+## Extract the simulated biomass each year ---------------------------
+simulated_biomass <- list()
+for (i in 1:k) {
+  simulated_biomass[[i]] <- sum(data_variables[[i]]$biomasa)
+}
+simulated_biomass <- unlist(simulated_biomass)
+## Set parameters of Schafer's production curve ---------------------------
+r <- 1.4
+K <- sum(simulated_biomass)/0.5
+
+## Catch approximation ---------------------------
+simulated_catch <- list()
+for (i in 1: (k-1)) {
+  simulated_catch[[i]] <- simulated_biomass[i] - simulated_biomass[(i + 1)] + (r*simulated_biomass[i] * (1-(simulated_biomass[i]/K)))
+}
+
+simulated_catch[[15]] <-  r*simulated_biomass[15]*(1-(simulated_biomass[15]/K)) # We assumed equilibrium biomass_14 = biomass_15 
+
+simulated_catch <- unlist(simulated_catch)
+
+## Capturas ---------------------------
+C_sp_i <- data.frame(obsC = simulated_catch, timeC = rep(2000:2014)) 
+
+# INPUT 2: relative indices of biomass ---------------------------
+load("./pref_series.RData")
+I_sp_i_1 <- data.frame(ObsI = glm_f_CPUE, timeI = 2000:2014) 
+I_sp_i_2 <- data.frame(ObsI = glm_b_CPUE, timeI = 2000:2014) 
+I_sp_i_3 <- data.frame(ObsI = gam_f_CPUE, timeI = 2000:2014) 
+I_sp_i_4 <- data.frame(ObsI = gam_b_CPUE, timeI = 2000:2014) 
+I_sp_i_5 <- data.frame(ObsI = geo_b_CPUE, timeI = 2000:2014)
+I_sp_i_6 <- data.frame(ObsI = geo_pref_b_CPUE, timeI = 2000:2014) 
+
+
+# Joint INPUTS ---------------------------
+## GLM F
+inp_1 <- list(
+  timeC = C_sp_i$timeC, # Year
+  obsC = C_sp_i$obsC, # Catch
+  timeI = list(I_sp_i_1$timeI), # Year
+  obsI = list(I_sp_i_1$ObsI) # relative indices
+)
+
+inp_1 <- check.inp(inp_1)
+inp_1$dtc
+inp_1$dteuler <- 1/16
+inp_1$ini$logn <- log(2) # Set p
+inp_1$phases$logn <- -1
+
+## GLM B 
+inp_2 <- list(
+  timeC = C_sp_i$timeC, # Year
+  obsC = C_sp_i$obsC, # Catch
+  timeI = list(I_sp_i_2$timeI), # Year
+  obsI = list(I_sp_i_2$ObsI) # relative indices
+)
+
+inp_2 <- check.inp(inp_2)
+inp_2$dtc
+inp_2$dteuler <- 1/16
+inp_2$ini$logn <- log(2) # Set p
+inp_2$phases$logn <- -1
+
+## GAM F
+inp_3 <- list(
+  timeC = C_sp_i$timeC, # Year
+  obsC = C_sp_i$obsC, # Catch
+  timeI = list(I_sp_i_3$timeI), # Year
+  obsI = list(I_sp_i_3$ObsI) # relative indices
+)
+
+inp_3 <- check.inp(inp_3)
+inp_3$dtc
+inp_3$dteuler <- 1/16
+inp_3$ini$logn <- log(2) # Set p
+inp_3$phases$logn <- -1
+
+## GAM B
+inp_4 <- list(
+  timeC = C_sp_i$timeC, # Year
+  obsC = C_sp_i$obsC, # Catch
+  timeI = list(I_sp_i_4$timeI), # Year
+  obsI = list(I_sp_i_4$ObsI) # relative indices
+)
+
+inp_4 <- check.inp(inp_4)
+inp_4$dtc
+inp_4$dteuler <- 1/16
+inp_4$ini$logn <- log(2) # Set p
+inp_4$phases$logn <- -1
+
+## GEO 
+inp_5 <- list(
+  timeC = C_sp_i$timeC, # Year
+  obsC = C_sp_i$obsC, # Catch
+  timeI = list(I_sp_i_5$timeI), # Year
+  obsI = list(I_sp_i_5$ObsI) # relative indices
+)
+
+inp_5 <- check.inp(inp_5)
+inp_5$dtc
+inp_5$dteuler <- 1/16
+inp_5$ini$logn <- log(2) # Set p
+inp_5$phases$logn <- -1
+
+## MARKED POINT PATTERN 
+inp_6 <- list(
+  timeC = C_sp_i$timeC, # Year
+  obsC = C_sp_i$obsC, # Catch
+  timeI = list(I_sp_i_6$timeI), # Year
+  obsI = list(I_sp_i_6$ObsI) # relative indices
+)
+
+inp_6 <- check.inp(inp_6)
+inp_6$dtc
+inp_6$dteuler <- 1/16
+inp_6$ini$logn <- log(2) # Set p
+inp_6$phases$logn <- -1
+```
+
+### GLM (frequentist)
+
+```{r, echo = FALSE, fig.align='center'}
+plotspict.data(inp_1)
+```
+
+### GLM (Bayesian)
+
+```{r, echo = FALSE, fig.align='center'}
+plotspict.data(inp_2)
+```
+
+### GAM (frequentist)
+
+```{r, echo = FALSE, fig.align='center'}
+plotspict.data(inp_3)
+```
+
+### GAM (Bayesian)
+
+```{r, echo = FALSE, fig.align='center'}
+plotspict.data(inp_4)
+```
+
+### Geostatistic
+
+```{r, echo = FALSE, fig.align='center'}
+plotspict.data(inp_5)
+```
+
+### Marked point pattern
+
+```{r, echo = FALSE, fig.align='center'}
+plotspict.data(inp_6)
+```
+
+## Fit the model {.tabset .tabset-fade}
+
+```{r, eval = FALSE}
+# SPiCT ---------------------------
+res <- fit.spict(inp)
+```
+
+```{r, include = FALSE}
+res_1 <- fit.spict(inp_1) # GLM F
+res_2 <- fit.spict(inp_2) # GLM B
+res_3 <- fit.spict(inp_3) # GAM F
+res_4 <- fit.spict(inp_4) # GAM B
+res_5 <- fit.spict(inp_5) # GEO
+res_6 <- fit.spict(inp_6) # MPP
+```
+
+### GLM (frequentist)
+
+```{r, echo = FALSE, fig.align='center'}
+plot(res_1)
+```
+
+### GLM (Bayesian)
+
+```{r, echo = FALSE, fig.align='center'}
+plot(res_2)
+```
+
+### GAM (frequentist)
+
+```{r, echo = FALSE, fig.align='center'}
+plot(res_3)
+```
+
+### GAM (Bayesian)
+
+```{r, echo = FALSE, fig.align='center'}
+plot(res_4)
+```
+
+### Geostatistic
+
+```{r, echo = FALSE, fig.align='center'}
+plot(res_5)
+```
+
+### Marked point pattern
+
+```{r, echo = FALSE, fig.align='center'}
+plot(res_6)
+```
+
+## Diagnostic {.tabset .tabset-fade}
+
+```{r, eval = FALSE}
+# Diagnostic ---------------------------
+## Convergence 
+res$opt$convergence # 0 convergence  
+all(is.finite(res$sd)) # if it is TRUE is okay 
+
+residuals <- calc.osa.resid(res) # residuals of the model
+plotspict.diagnostic(residuals) # test for the diagnostic
+
+## Retrospective analysis
+r <- fit.spict(inp) 
+rep=retro(r, nretroyear=3) # Eliminate 3 years
+plotspict.retro(rep) # plot for the retrospective analysis 
+m1=mohns_rho(rep, what = c("FFmsy", "BBmsy"));
+m1 # Discrepancy between last year and trajectories, it is NOT suitable for our specific case
+
+
+## Production curve
+plotspict.production(res) # check that the points fall around the curve
+
+## Model robustness (change of initial values)
+set.seed(1234)
+a=check.ini(inp, ntrials=30 
+            ,verbose = FALSE)
+a$check.ini$propchng
+a$check.ini$resmat # check distance is close to 0 
+
+# Confidence intervals
+fit=res # no more than 1 unit
+get.par("logBmBmsy", fit, exp=TRUE, CI = 0.9) 
+get.par("logFmFmsy", fit, exp=TRUE, CI = 0.9)
+
+# Estimated biomass vs real biomass
+get.par("logB", fit, exp=TRUE, CI = 0.9) 
+biomass_scpit <- get.par("logB", res, exp = TRUE)[seq(1,length(inp$time),by=16),2]
+biomass_scpit <- biomass_scpit[1:15] 
+plot(biomass_scpit, col = "red", type = "l")
+plot(simulated_biomass, col = "blue", type = "l")
+plotspict.biomass(res) 
+```
+
+### GLM (frequentist)
+
+#### Measures for convergence
+
+```{r}
+# Diagnostic ---------------------------
+## Convergence 
+res_1$opt$convergence # 0 convergence  
+all(is.finite(res_1$sd)) # if it is TRUE is okay 
+```
+
+#### Residuals analysis
+
+```{r, fig.align='center'}
+residuals_1 <- calc.osa.resid(res_1) # residuals of the model
+plotspict.diagnostic(residuals_1) # test for the diagnostic
+```
+
+#### Retrospective analysis
+
+```{r, fig.align='center'}
+## Retrospective analysis
+r_1 <- fit.spict(inp_1) 
+rep_1 = retro(r_1, nretroyear=3) # Eliminate 3 years
+plotspict.retro(rep_1) # plot for the retrospective analysis 
+```
+
+#### Production curve
+
+```{r, fig.align='center'}
+## Production curve
+plotspict.production(res_1) # check that the points fall around the curve
+```
+
+#### Model robustness
+
+```{r}
+## Model robustness (change of initial values)
+set.seed(1234)
+a_1=check.ini(inp_1, ntrials=30 
+            ,verbose = FALSE)
+#a_1$check.ini$propchng
+table(a_1$check.ini$resmat[1:30] == 0) # check distance is close to 0 
+```
+
+#### Confidence intervals
+
+```{r}
+# Confidence intervals
+fit_1=res_1 # no more than 1 unit
+get.par("logBmBmsy", fit_1, exp=TRUE, CI = 0.9) 
+get.par("logFmFmsy", fit_1, exp=TRUE, CI = 0.9)
+```
+
+#### Estimated biomass vs Simulated biomass
+
+```{r}
+# get.par("logB", fit_1, exp=TRUE, CI = 0.9) 
+biomass_SPiCT_1 <- get.par("logB", res_1, exp = TRUE)[seq(1,length(inp_1$time),by=16),2]
+biomass_SPiCT_1 <- biomass_SPiCT_1[1:15] 
+```
+
+```{r, fig.align= TRUE}
+plot(biomass_SPiCT_1,
+     col = "red",
+     type = "l",
+     ylim = c(min(simulated_biomass), max(biomass_SPiCT_1))
+     )
+lines(simulated_biomass, col = "blue", type = "l")
+```
+
+```{r}
+# Error measures
+glm_f_rmse <- rmse(biomass_SPiCT_1, simulated_biomass)
+glm_f_mae <- mae(biomass_SPiCT_1, simulated_biomass)
+glm_f_mape <- MAPE(biomass_SPiCT_1, simulated_biomass)
+glm_f_rmse # RMSE
+glm_f_mae # MAE
+glm_f_mape # MAPE
+```
+
+### GLM (Bayesian)
+
+#### Measures for convergence
+
+```{r}
+# Diagnostic ---------------------------
+## Convergence 
+res_2$opt$convergence # 0 convergence  
+all(is.finite(res_2$sd)) # if it is TRUE is okay 
+```
+
+#### Residuals analysis
+
+```{r, fig.align='center'}
+residuals_2 <- calc.osa.resid(res_2) # residuals of the model
+plotspict.diagnostic(residuals_2) # test for the diagnostic
+```
+
+#### Retrospective analysis
+
+```{r, fig.align='center'}
+## Retrospective analysis
+r_2 <- fit.spict(inp_2) 
+rep_2 = retro(r_2, nretroyear=3) # Eliminate 3 years
+plotspict.retro(rep_2) # plot for the retrospective analysis 
+```
+
+#### Production curve
+
+```{r, fig.align='center'}
+## Production curve
+plotspict.production(res_2) # check that the points fall around the curve
+```
+
+#### Model robustness
+
+```{r}
+## Model robustness (change of initial values)
+set.seed(1234)
+a_2=check.ini(inp_2, ntrials=30 
+            ,verbose = FALSE)
+#a_2$check.ini$propchng
+table(a_2$check.ini$resmat[1:30] == 0) # check distance is close to 0 
+```
+
+#### Confidence intervals
+
+```{r}
+# Confidence intervals
+fit_2=res_2 # no more than 1 unit
+get.par("logBmBmsy", fit_2, exp=TRUE, CI = 0.9) 
+get.par("logFmFmsy", fit_2, exp=TRUE, CI = 0.9)
+```
+
+#### Estimated biomass vs Simulated biomass
+
+```{r}
+# get.par("logB", fit_2, exp=TRUE, CI = 0.9) 
+biomass_SPiCT_2 <- get.par("logB", res_2, exp = TRUE)[seq(1,length(inp_2$time),by=16),2]
+biomass_SPiCT_2 <- biomass_SPiCT_2[1:15] 
+```
+
+```{r, fig.align= TRUE}
+plot(biomass_SPiCT_2,
+     col = "red",
+     type = "l",
+     ylim = c(min(simulated_biomass), max(biomass_SPiCT_2))
+     )
+lines(simulated_biomass, col = "blue", type = "l")
+```
+
+```{r}
+# Error measures
+glm_b_rmse <- rmse(biomass_SPiCT_2, simulated_biomass)
+glm_b_mae <- mae(biomass_SPiCT_2, simulated_biomass)
+glm_b_mape <- MAPE(biomass_SPiCT_2, simulated_biomass)
+glm_b_rmse # RMSE
+glm_b_mae # MAE
+glm_b_mape # MAPE
+```
+
+### GAM (frequentist)
+
+#### Measures for convergence
+
+```{r}
+# Diagnostic ---------------------------
+## Convergence 
+res_3$opt$convergence # 0 convergence  
+all(is.finite(res_3$sd)) # if it is TRUE is okay 
+```
+
+#### Residuals analysis
+
+```{r, fig.align='center'}
+residuals_3 <- calc.osa.resid(res_3) # residuals of the model
+plotspict.diagnostic(residuals_3) # test for the diagnostic
+```
+
+#### Retrospective analysis
+
+```{r, fig.align='center'}
+## Retrospective analysis
+r_3 <- fit.spict(inp_3) 
+rep_3 = retro(r_3, nretroyear=3) # Eliminate 3 years
+plotspict.retro(rep_3) # plot for the retrospective analysis 
+```
+
+#### Production curve
+
+```{r, fig.align='center'}
+## Production curve
+plotspict.production(res_3) # check that the points fall around the curve
+```
+
+#### Model robustness
+
+```{r}
+## Model robustness (change of initial values)
+set.seed(1234)
+a_3=check.ini(inp_3, ntrials=30 
+            ,verbose = FALSE)
+#a_3$check.ini$propchng
+table(a_3$check.ini$resmat[1:30] == 0) # check distance is close to 0 
+```
+
+#### Confidence intervals
+
+```{r}
+# Confidence intervals
+fit_3=res_3 # no more than 1 unit
+get.par("logBmBmsy", fit_3, exp=TRUE, CI = 0.9) 
+get.par("logFmFmsy", fit_3, exp=TRUE, CI = 0.9)
+```
+
+#### Estimated biomass vs Simulated biomass
+
+```{r}
+# get.par("logB", fit_3, exp=TRUE, CI = 0.9) 
+biomass_SPiCT_3 <- get.par("logB", res_3, exp = TRUE)[seq(1,length(inp_3$time),by=16),2]
+biomass_SPiCT_3 <- biomass_SPiCT_3[1:15] 
+```
+
+```{r, fig.align= TRUE}
+plot(biomass_SPiCT_3,
+     col = "red",
+     type = "l",
+     ylim = c(min(simulated_biomass), max(biomass_SPiCT_3))
+     )
+lines(simulated_biomass, col = "blue", type = "l")
+```
+
+```{r}
+# Error measures
+gam_f_rmse <- rmse(biomass_SPiCT_3, simulated_biomass)
+gam_f_mae <- mae(biomass_SPiCT_3, simulated_biomass)
+gam_f_mape <- MAPE(biomass_SPiCT_3, simulated_biomass)
+gam_f_rmse # RMSE
+gam_f_mae # MAE
+gam_f_mape # MAPE
+```
+
+### GAM (Bayesian)
+
+#### Measures for convergence
+
+```{r}
+# Diagnostic ---------------------------
+## Convergence 
+res_4$opt$convergence # 0 convergence  
+all(is.finite(res_4$sd)) # if it is TRUE is okay 
+```
+
+#### Residuals analysis
+
+```{r, fig.align='center'}
+residuals_4 <- calc.osa.resid(res_4) # residuals of the model
+plotspict.diagnostic(residuals_4) # test for the diagnostic
+```
+
+#### Retrospective analysis
+
+```{r, fig.align='center'}
+## Retrospective analysis
+r_4 <- fit.spict(inp_4) 
+rep_4 = retro(r_4, nretroyear=3) # Eliminate 3 years
+plotspict.retro(rep_4) # plot for the retrospective analysis 
+```
+
+#### Production curve
+
+```{r, fig.align='center'}
+## Production curve
+plotspict.production(res_4) # check that the points fall around the curve
+```
+
+#### Model robustness
+
+```{r}
+## Model robustness (change of initial values)
+set.seed(1234)
+a_4=check.ini(inp_4, ntrials=30 
+            ,verbose = FALSE)
+#a_4$check.ini$propchng
+table(a_4$check.ini$resmat[1:30] == 0) # check distance is close to 0 
+```
+
+#### Confidence intervals
+
+```{r}
+# Confidence intervals
+fit_4=res_4 # no more than 1 unit
+get.par("logBmBmsy", fit_4, exp=TRUE, CI = 0.9) 
+get.par("logFmFmsy", fit_4, exp=TRUE, CI = 0.9)
+```
+
+#### Estimated biomass vs Simulated biomass
+
+```{r}
+# get.par("logB", fit_4, exp=TRUE, CI = 0.9) 
+biomass_SPiCT_4 <- get.par("logB", res_4, exp = TRUE)[seq(1,length(inp_4$time),by=16),2]
+biomass_SPiCT_4 <- biomass_SPiCT_4[1:15] 
+```
+
+```{r, fig.align= TRUE}
+plot(biomass_SPiCT_4,
+     col = "red",
+     type = "l",
+     ylim = c(min(simulated_biomass), max(biomass_SPiCT_4))
+     )
+lines(simulated_biomass, col = "blue", type = "l")
+```
+
+```{r}
+# Error measures
+gam_b_rmse <- rmse(biomass_SPiCT_4, simulated_biomass)
+gam_b_mae <- mae(biomass_SPiCT_4, simulated_biomass)
+gam_b_mape <- MAPE(biomass_SPiCT_4, simulated_biomass)
+gam_b_rmse # RMSE
+gam_b_mae # MAE
+gam_b_mape # MAPE
+```
+
+### Geostatistic
+
+#### Measures for convergence
+
+```{r}
+# Diagnostic ---------------------------
+## Convergence 
+res_5$opt$convergence # 0 convergence  
+all(is.finite(res_5$sd)) # if it is TRUE is okay 
+```
+
+#### Residuals analysis
+
+```{r, fig.align='center'}
+residuals_5 <- calc.osa.resid(res_5) # residuals of the model
+plotspict.diagnostic(residuals_5) # test for the diagnostic
+```
+
+#### Retrospective analysis
+
+```{r, fig.align='center'}
+## Retrospective analysis
+r_5 <- fit.spict(inp_5) 
+rep_5 = retro(r_5, nretroyear=3) # Eliminate 3 years
+plotspict.retro(rep_5) # plot for the retrospective analysis 
+```
+
+#### Production curve
+
+```{r, fig.align='center'}
+## Production curve
+plotspict.production(res_5) # check that the points fall around the curve
+```
+
+#### Model robustness
+
+```{r}
+## Model robustness (change of initial values)
+set.seed(1234)
+a_5=check.ini(inp_5, ntrials=30 
+            ,verbose = FALSE)
+#a_5$check.ini$propchng
+table(a_5$check.ini$resmat[1:30] == 0) # check distance is close to 0 
+```
+
+#### Confidence intervals
+
+```{r}
+# Confidence intervals
+fit_5=res_5 # no more than 1 unit
+get.par("logBmBmsy", fit_5, exp=TRUE, CI = 0.9) 
+get.par("logFmFmsy", fit_5, exp=TRUE, CI = 0.9)
+```
+
+#### Estimated biomass vs Simulated biomass
+
+```{r}
+# get.par("logB", fit_5, exp=TRUE, CI = 0.9) 
+biomass_SPiCT_5 <- get.par("logB", res_5, exp = TRUE)[seq(1,length(inp_5$time),by=16),2]
+biomass_SPiCT_5 <- biomass_SPiCT_5[1:15] 
+```
+
+```{r, fig.align= TRUE}
+plot(biomass_SPiCT_5,
+     col = "red",
+     type = "l",
+     ylim = c(min(simulated_biomass), max(biomass_SPiCT_5))
+     )
+lines(simulated_biomass, col = "blue", type = "l")
+```
+
+```{r}
+# Error measures
+geo_b_rmse <- rmse(biomass_SPiCT_5, simulated_biomass)
+geo_b_mae <- mae(biomass_SPiCT_5, simulated_biomass)
+geo_b_mape <- MAPE(biomass_SPiCT_5, simulated_biomass)
+geo_b_rmse # RMSE
+geo_b_mae # MAE
+geo_b_mape # MAPE
+```
+
+### Marked point pattern
+
+#### Measures for convergence
+
+```{r}
+# Diagnostic ---------------------------
+## Convergence 
+res_6$opt$convergence # 0 convergence  
+all(is.finite(res_6$sd)) # if it is TRUE is okay 
+```
+
+#### Residuals analysis
+
+```{r, fig.align='center'}
+residuals_6 <- calc.osa.resid(res_6) # residuals of the model
+plotspict.diagnostic(residuals_6) # test for the diagnostic
+```
+
+#### Retrospective analysis
+
+```{r, fig.align='center'}
+## Retrospective analysis
+r_6 <- fit.spict(inp_6) 
+rep_6 = retro(r_6, nretroyear=3) # Eliminate 3 years
+plotspict.retro(rep_6) # plot for the retrospective analysis 
+```
+
+#### Production curve
+
+```{r, fig.align='center'}
+## Production curve
+plotspict.production(res_6) # check that the points fall around the curve
+```
+
+#### Model robustness
+
+```{r}
+## Model robustness (change of initial values)
+set.seed(1234)
+a_6=check.ini(inp_6, ntrials=30 
+            ,verbose = FALSE)
+#a_6$check.ini$propchng
+table(a_6$check.ini$resmat[1:30] == 0) # check distance is close to 0 
+```
+
+#### Confidence intervals
+
+```{r}
+# Confidence intervals
+fit_6=res_6 # no more than 1 unit
+get.par("logBmBmsy", fit_6, exp=TRUE, CI = 0.9) 
+get.par("logFmFmsy", fit_6, exp=TRUE, CI = 0.9)
+```
+
+#### Estimated biomass vs Simulated biomass
+
+```{r}
+# get.par("logB", fit_5, exp=TRUE, CI = 0.9) 
+biomass_SPiCT_6 <- get.par("logB", res_6, exp = TRUE)[seq(1,length(inp_6$time),by=16),2]
+biomass_SPiCT_6 <- biomass_SPiCT_6[1:15] 
+```
+
+```{r, fig.align= TRUE}
+plot(biomass_SPiCT_6,
+     col = "red",
+     type = "l",
+     ylim = c(min(simulated_biomass), max(biomass_SPiCT_6))
+     )
+lines(simulated_biomass, col = "blue", type = "l")
+```
+
+```{r}
+# Error measures
+geo_pref_b_rmse <- rmse(biomass_SPiCT_6, simulated_biomass)
+geo_pref_b_mae <- mae(biomass_SPiCT_6, simulated_biomass)
+geo_pref_b_mape <- MAPE(biomass_SPiCT_6, simulated_biomass)
+geo_pref_b_rmse # RMSE
+geo_pref_b_mae # MAE
+geo_pref_b_mape # MAPE
+```
+
+```{r, include = FALSE}
+data_error_pref <- data.frame(models = c("GLM F",
+                                         "GLM B",
+                                         "GAM F",
+                                         "GAM B",
+                                         "GEO",
+                                         "MARKED PP"),
+                            
+                             rmse = c(glm_f_rmse,
+                                      glm_b_rmse,
+                                      gam_f_rmse,
+                                      gam_b_rmse,
+                                      geo_b_rmse,
+                                      geo_pref_b_rmse),
+                             
+                             mae = c(glm_f_mae,
+                                     glm_b_mae,
+                                     gam_f_mae,
+                                     gam_b_mae,
+                                     geo_b_mae,
+                                     geo_pref_b_mae),
+                             
+                             mape = c(glm_f_mape,
+                                      glm_b_mape,
+                                      gam_f_mape,
+                                      gam_b_mape,
+                                      geo_b_mape,
+                                      geo_pref_b_mape))
+```
+
+# Error measures 
+
+## Relativa biomass indices: random sampling
+
+```{r, echo = FALSE}
+knitr::kable(data_error_random, col.names = c("MODELS","RMSE", "MAE", "MAPE"), align = 'c')
+```
+
+## CPUE indices: preferential sampling
+
+```{r, echo = FALSE}
+knitr::kable(data_error_pref, col.names = c("MODELS","RMSE", "MAE", "MAPE"), align = 'c')
+```
